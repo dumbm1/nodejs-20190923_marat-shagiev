@@ -2,9 +2,10 @@ const url = require('url');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+
 const server = new http.Server();
 
-server.on('request', async (req, res) => {
+server.on('request', /*async*/ (req, res) => {
 
     const pathname = url.parse(req.url).pathname.slice(1);
     const filepath = path.join(__dirname, 'files', pathname);
@@ -23,16 +24,15 @@ server.on('request', async (req, res) => {
                     throw new Error('Файл не найден');
                 }
 
-                /* res.statusCode = 200;
-                 fs.createReadStream(filepath).pipe(res);*/
+                res.statusCode = 200;
+                fs.createReadStream(filepath).pipe(res);
 
-                const body = [];
-                const content = fs.createReadStream(filepath);
-                for await (const chunk of content) {
-                    body.push(chunk.toString());
-                }
-
-                res.end(body);
+                /* const body = [];
+                   const content = fs.createReadStream(filepath);
+                   for await (const chunk of content) {
+                       body.push(chunk.toString());
+                   }
+                   res.end(body);*/
 
             } catch (e) {
                 console.log(e);
@@ -46,6 +46,5 @@ server.on('request', async (req, res) => {
             break;
     }
 });
-
 
 module.exports = server;
