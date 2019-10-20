@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const limitSizeStream = new LimitSizeStream({limit: 1000});
+const limitSizeStream = new LimitSizeStream({limit: 100});
 const server = new http.Server();
 
 server.on('request', (req, res) => {
@@ -18,24 +18,15 @@ server.on('request', (req, res) => {
         res.statusCode = 400;
         res.end('Вложенные папки не поддерживаются');
       }
+
       if (fs.existsSync(filepath)) {
         res.statusCode = 409;
         res.end('File Exists');
       }
-      const outStream = fs.createWriteStream(filepath);
-      limitSizeStream.pipe(outStream);
-      outStream
-        .on('error', err => {
-          if(err.code === 'LIMIT_EXCEEDED') {
-            res.statusCode = 413;
-            res.end('Limit Exceeded Error');
-          } else {
-            res.statusCode = 500;
-            res.end('Internal Server Error');
-          }
 
-        })
-        .pipe(res);
+      req.pipe(fs.createWriteStream(filepath));
+      res.end('OK');
+
 
       break;
     default:
