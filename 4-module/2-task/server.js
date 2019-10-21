@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const limitSizeStream = new LimitSizeStream({limit: 100});
+const limitedStream = new LimitSizeStream({limit: 9000}); // 8 байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
@@ -19,14 +19,62 @@ server.on('request', (req, res) => {
         res.end('Вложенные папки не поддерживаются');
       }
 
-      if (fs.existsSync(filepath)) {
-        res.statusCode = 409;
-        res.end('File Exists');
-      }
+      /* if (fs.existsSync(filepath)) {
+       res.statusCode = 409;
+       res.end('File Exists');
+       }*/
 
-      req.pipe(fs.createWriteStream(filepath));
-      res.end('OK');
+      const file = fs.createWriteStream(filepath, {flags: 'wx'});
+      limitedStream.pipe(file);
 
+      /*req.pipe(file);
+
+       file.on('close', () => {
+       res.end('Saved');
+       });
+
+       file.on('error', err => {
+       if (err.code === 'EEXIST') {
+       res.statusCode = 400;
+       res.end('File Exists');
+       } else {
+       res.statusCode = 500;
+       res.end('Internal Server Error');
+       }
+       });*/
+      let content = '';
+
+      req.on('data', data => {
+        content += data;
+        limitedStream.write(data);
+      });
+
+      /*req.on('end', () => {
+        res.end('Saved');
+      });*/
+
+      file.on('error', err => {
+        res.end('File Error');
+      });
+      file.on('close', () => {
+        res.end('File Closed');
+      });
+
+      break;
+    case 'DELETE':
+
+      fs.unlink(filepath, err => {
+        if (err) {
+          if (err.code === 'ENOENT') {
+            res.statusCode = 404;
+            res.end('Not Found');
+          } else {
+            res.statusCode = 500;
+            res.end('Internal Server Error');
+          }
+        }
+        res.end('OK');
+      });
 
       break;
     default:
