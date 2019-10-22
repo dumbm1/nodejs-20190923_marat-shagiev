@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const limitedStream = new LimitSizeStream({limit: 9000}); // 8 байт
+const limitedStream = new LimitSizeStream({limit: 1000}); // 8 байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
@@ -14,69 +14,33 @@ server.on('request', (req, res) => {
   switch (req.method) {
     case 'POST':
 
-      if (pathname.includes('/')) {
-        res.statusCode = 400;
-        res.end('Вложенные папки не поддерживаются');
-      }
+      /* if (pathname.includes('/')) {
+       res.statusCode = 400;
+       res.end('Вложенные папки не поддерживаются');
+       }*/
 
       /* if (fs.existsSync(filepath)) {
        res.statusCode = 409;
        res.end('File Exists');
        }*/
 
-      const file = fs.createWriteStream(filepath, {flags: 'wx'});
+      const file = fs.createWriteStream(filepath);
       limitedStream.pipe(file);
 
-      /*req.pipe(file);
-
-       file.on('close', () => {
-       res.end('Saved');
-       });
-
-       file.on('error', err => {
-       if (err.code === 'EEXIST') {
-       res.statusCode = 400;
-       res.end('File Exists');
-       } else {
-       res.statusCode = 500;
-       res.end('Internal Server Error');
-       }
-       });*/
-      let content = '';
-
       req.on('data', data => {
-        content += data;
         limitedStream.write(data);
       });
 
-      /*req.on('end', () => {
-        res.end('Saved');
-      });*/
-
-      file.on('error', err => {
-        res.end('File Error');
+      req.on('end', () => {
+        res.end('End of Request');
       });
-      file.on('close', () => {
-        res.end('File Closed');
+
+      limitedStream.on('error', err => {
+        res.end(`Limit Error: ${err.code}`);
       });
 
       break;
-    case 'DELETE':
 
-      fs.unlink(filepath, err => {
-        if (err) {
-          if (err.code === 'ENOENT') {
-            res.statusCode = 404;
-            res.end('Not Found');
-          } else {
-            res.statusCode = 500;
-            res.end('Internal Server Error');
-          }
-        }
-        res.end('OK');
-      });
-
-      break;
     default:
       res.statusCode = 501;
       res.end('Not implemented');
