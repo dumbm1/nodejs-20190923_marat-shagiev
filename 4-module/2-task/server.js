@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const limitedStream = new LimitSizeStream({limit: 1000}); // 8 байт
+const limitedStream = new LimitSizeStream({limit: 10000000}); // байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
@@ -14,29 +14,46 @@ server.on('request', (req, res) => {
   switch (req.method) {
     case 'POST':
 
-      /* if (pathname.includes('/')) {
-       res.statusCode = 400;
-       res.end('Вложенные папки не поддерживаются');
-       }*/
+      const file = fs.createWriteStream(filepath, {flags: 'wx'});
 
-      /* if (fs.existsSync(filepath)) {
-       res.statusCode = 409;
-       res.end('File Exists');
-       }*/
+      file.on('error', err => {
+        res.end(`File Error: ${err.code}`);
+        console.log(`File Error: ${err.code}`);
+      });
 
-      const file = fs.createWriteStream(filepath);
       limitedStream.pipe(file);
 
-      req.on('data', data => {
-        limitedStream.write(data);
+      req.on('data', chunk => {
+        console.log(chunk);
+
+        limitedStream.write(chunk, 'utf-8', err => {
+          if (!err) return;
+          if (err.code === 'LIMIT_EXCEEDED') {
+            res.end(`LIMIT_EXCEEDED`);
+            console.log(`LIMIT_EXCEEDED`);
+          } else {
+            res.end(`LimitStream Unknown Error: ${err}`);
+            console.log(`LimitStream Unknown Error: ${err}`);
+          }
+        });
       });
 
       req.on('end', () => {
-        res.end('End of Request');
+        // req.pipe(limitedStream);
+        res.end('Req Event: End');
+        console.log('Req Event: End');
       });
 
+      // req.pipe(file);
+
       limitedStream.on('error', err => {
-        res.end(`Limit Error: ${err.code}`);
+        res.end(`LimitStream.onError: ${err.code}`);
+        console.log(`LimitStream.onError: ${err.code}`);
+      });
+
+      file.on('close', () => {
+        res.end(`File Event: Close`);
+        console.log(`File Event: Close`);
       });
 
       break;
