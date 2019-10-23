@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const limitedStream = new LimitSizeStream({limit: 10000000}); // байт
+const limitedStream = new LimitSizeStream({limit: 100000}); // байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
@@ -14,6 +14,11 @@ server.on('request', (req, res) => {
   switch (req.method) {
     case 'POST':
 
+      if (fs.existsSync(filepath)) {
+        res.end(',,,f,f,djfkdjf');
+        break;
+      }
+
       const file = fs.createWriteStream(filepath, {flags: 'wx'});
 
       file.on('error', err => {
@@ -22,24 +27,30 @@ server.on('request', (req, res) => {
       });
 
       limitedStream.pipe(file);
+// req.pipe(limitedStream);
 
-      req.on('data', chunk => {
-        console.log(chunk);
+            req.on('data', chunk => {
+              limitedStream.write(chunk, 'utf-8', err => {
+                if (!err) {
+                  console.log(chunk);
+                  return;
+                }
+                if (err.code === 'LIMIT_EXCEEDED') {
+                  res.end(`LIMIT_EXCEEDED`);
+                  console.log(`LIMIT_EXCEEDED`);
+                  file.close();
+                  fs.unlink(filepath, err=>{
 
-        limitedStream.write(chunk, 'utf-8', err => {
-          if (!err) return;
-          if (err.code === 'LIMIT_EXCEEDED') {
-            res.end(`LIMIT_EXCEEDED`);
-            console.log(`LIMIT_EXCEEDED`);
-          } else {
-            res.end(`LimitStream Unknown Error: ${err}`);
-            console.log(`LimitStream Unknown Error: ${err}`);
-          }
-        });
-      });
+                  });
+                } else {
+                  res.end(`LimitStream Unknown Error: ${err}`);
+                  console.log(`LimitStream Unknown Error: ${err}`);
+                }
+              });
+            });
 
       req.on('end', () => {
-        // req.pipe(limitedStream);
+        req.pipe(file);
         res.end('Req Event: End');
         console.log('Req Event: End');
       });
