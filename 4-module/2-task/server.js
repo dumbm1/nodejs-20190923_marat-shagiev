@@ -4,67 +4,72 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const limitedStream = new LimitSizeStream({limit: 100000}); // байт
+const limitedStream = new LimitSizeStream({limit: Math.pow(2, 20)}); // байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
+
   const pathname = url.parse(req.url).pathname.slice(1);
   const filepath = path.join(__dirname, 'files', pathname);
+
+  if (pathname.includes('/')) {
+    res.statusCode = 400;
+    res.end('Вложенные папки не поддерживаются');
+    console.log('Вложенные папки не поддерживаются');
+    return;
+  }
 
   switch (req.method) {
     case 'POST':
 
       if (fs.existsSync(filepath)) {
-        res.end(',,,f,f,djfkdjf');
+        res.statusCode = 409;
+        res.end('File Exists');
+        console.log('File Exists');
         break;
       }
 
-      const file = fs.createWriteStream(filepath, {flags: 'wx'});
-
-      file.on('error', err => {
-        res.end(`File Error: ${err.code}`);
-        console.log(`File Error: ${err.code}`);
-      });
-
-      limitedStream.pipe(file);
-// req.pipe(limitedStream);
-
-            req.on('data', chunk => {
-              limitedStream.write(chunk, 'utf-8', err => {
-                if (!err) {
-                  console.log(chunk);
-                  return;
-                }
-                if (err.code === 'LIMIT_EXCEEDED') {
-                  res.end(`LIMIT_EXCEEDED`);
-                  console.log(`LIMIT_EXCEEDED`);
-                  file.close();
-                  fs.unlink(filepath, err=>{
-
-                  });
-                } else {
-                  res.end(`LimitStream Unknown Error: ${err}`);
-                  console.log(`LimitStream Unknown Error: ${err}`);
-                }
-              });
-            });
-
-      req.on('end', () => {
-        req.pipe(file);
-        res.end('Req Event: End');
-        console.log('Req Event: End');
-      });
-
-      // req.pipe(file);
+      req.pipe(limitedStream);
 
       limitedStream.on('error', err => {
-        res.end(`LimitStream.onError: ${err.code}`);
-        console.log(`LimitStream.onError: ${err.code}`);
+
+        if (err.code === 'LIMIT_EXCEEDED') {
+
+          fs.unlink(filepath, err => {
+            if (err) cosole.log(err.code);
+            console.log('Файл Зачищен');
+          });
+
+          res.statusCode = 413;
+          res.end(err.code);
+          console.log(err.code);
+        } else {
+          res.statusCode = 500;
+          res.end('Internal Server Error');
+        }
+
+      });
+
+      const file = fs.createWriteStream(filepath/*, {flags: 'wx'}*/);
+
+      req.on('end', err => {
+        if (err) {
+          console.log(err.code);
+        }
+        limitedStream.pipe(file);
+
+        console.log('Req End');
+        res.end('Req End');
       });
 
       file.on('close', () => {
-        res.end(`File Event: Close`);
-        console.log(`File Event: Close`);
+        console.log('File close');
+      });
+
+      req.on('close', err => {
+        if (err) {
+          console.log(err.code);
+        }
       });
 
       break;
