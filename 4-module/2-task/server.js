@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const fileSizeLimit = Math.pow(2, 2);
+const fileSizeLimit = Math.pow(2, 20);
 
 const limitedStream = new LimitSizeStream({limit: fileSizeLimit}); // байт
 const server = new http.Server();
@@ -18,35 +18,53 @@ server.on('request', (req, res) => {
     case 'POST':
 
       Promise.all([
+
         new Promise((resolve, reject) => {
           if (pathname.includes('/')) {
             res.statusCode = 400;
             return reject(new Error('Вложенные папки не поддерживаются'));
           } else { return resolve('Порядок - вложенных папок нет');}
         }),
+
         new Promise((resolve, reject) => {
           if (fs.existsSync(filepath)) {
             res.statusCode = 409;
             return reject(new Error('Файл существует'));
           } else { return resolve('Порядок - файла с таким именем нет');}
         }),
+
         new Promise((resolve, reject) => {
+          let chunkLength = 0;
           req.on('data', chunk => {
             try {
+              chunkLength += chunk.length;
               limitedStream.write(chunk);
             } catch (err) {
               if (err.code === 'LIMIT_EXCEEDED') {
                 res.statusCode = 413;
-                return reject(new Error(`Ошибка - файл > ${fileSizeLimit} байт`));
+                return reject(new Error(`Ошибка - файл > ${fileSizeLimit} байт; ${chunkLength}`));
               } else {
                 res.statusCode = 500;
                 return reject(new Error(`Неизвестная ошибка сервера`));
               }
             }
           });
-          req.on('end', () => {
-            return resolve(`Порядок - файл < ${fileSizeLimit} байт`);
+
+          req.on('close', () => {
+            res.statusCode = 666;
+            return reject(new Error(`Соединение прервано`));
           });
+
+          req.on('end', () => {
+
+            if (chunkLength < fileSizeLimit) {
+              return resolve(`Порядок - файл < ${fileSizeLimit} байт; Размер файла ${chunkLength} байт`);
+            } else {
+              return reject(new Error(`Ошибка - файл > ${fileSizeLimit} байт; ${chunkLength}`));
+            }
+
+          });
+
         })
       ])
              .then(results => {
@@ -64,7 +82,6 @@ server.on('request', (req, res) => {
              });
 
       break;
-
     default:
       res.statusCode = 501;
       res.end('Not implemented');
