@@ -17,69 +17,63 @@ server.on('request', (req, res) => {
   switch (req.method) {
     case 'POST':
 
+      let lenChunk = 0;
+      let bodyChunk = '';
+
       Promise.all([
 
         new Promise((resolve, reject) => {
-          if (pathname.includes('/')) {
-            res.statusCode = 400;
-            return reject(new Error('Вложенные папки не поддерживаются'));
-          } else { return resolve('Порядок - вложенных папок нет');}
+          if (!pathname.includes('/')) return resolve('Путь корректрый');
+          res.statusCode = 400;
+          return reject(new Error('Вложенные папки не поддерживаются'));
+
         }),
 
         new Promise((resolve, reject) => {
-          if (fs.existsSync(filepath)) {
-            res.statusCode = 409;
-            return reject(new Error('Файл существует'));
-          } else { return resolve('Порядок - файла с таким именем нет');}
+          if (!fs.existsSync(filepath)) return resolve('Имя файла корректное');
+          res.statusCode = 409;
+          return reject('Ошибка загрузки - такой файл уже есть');
         }),
 
         new Promise((resolve, reject) => {
-          let chunkLength = 0;
+
           req.on('data', chunk => {
-            try {
-              chunkLength += chunk.length;
-              limitedStream.write(chunk);
-            } catch (err) {
-              if (err.code === 'LIMIT_EXCEEDED') {
-                res.statusCode = 413;
-                return reject(new Error(`Ошибка - файл > ${fileSizeLimit} байт; ${chunkLength}`));
-              } else {
-                res.statusCode = 500;
-                return reject(new Error(`Неизвестная ошибка сервера`));
-              }
+            lenChunk += chunk.length;
+            bodyChunk += chunk;
+
+            if (lenChunk >= fileSizeLimit) {
+              res.statusCode = 413;
+              return reject(`${lenChunk} >= ${fileSizeLimit}`);
             }
-          });
 
-          req.on('close', () => {
-            res.statusCode = 666;
-            return reject(new Error(`Соединение прервано`));
+            return resolve('req.on data');
           });
+        }),
 
+        new Promise((resolve, reject) => {
           req.on('end', () => {
-
-            if (chunkLength < fileSizeLimit) {
-              return resolve(`Порядок - файл < ${fileSizeLimit} байт; Размер файла ${chunkLength} байт`);
-            } else {
-              return reject(new Error(`Ошибка - файл > ${fileSizeLimit} байт; ${chunkLength}`));
-            }
-
+            return resolve('req.on end');
           });
+        }),
 
-        })
+        new Promise((resolve, reject) => {
+          res.on('finish', () => {
+            return resolve('res.on finish');
+          });
+        }),
+
       ])
-             .then(results => {
-               results.forEach(result => {
-                 console.log(result);
-                 console.log(res.statusCode);
-               });
-             })
-             .catch(err => {
-               console.log(err.message);
-               console.log(res.statusCode);
-             })
-             .finally(() => {
-               res.end('Конец запроса');
-             });
+        .then(results => {
+          results.forEach(result => {
+            console.log(result, res.statusCode);
+          });
+          fs.createWriteStream(filepath).write(bodyChunk);
+          res.end('then end');
+        })
+        .catch(err => {
+          console.log(err, res.statusCode);
+        })
+        .finally(res.end('finally res.end'));
 
       break;
     default:
