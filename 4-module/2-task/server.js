@@ -4,12 +4,15 @@ const path = require('path');
 const fs = require('fs');
 const LimitSizeStream = require('./LimitSizeStream');
 
-const fileSizeLimit = Math.pow(2, 30);
+const fileSizeLimit = Math.pow(2, 20);
 
 const limitedStream = new LimitSizeStream({limit: fileSizeLimit}); // байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
+
+  const dir = path.join(__dirname, 'files');
+  !fs.existsSync(dir) && fs.mkdirSync(dir);
 
   const pathname = url.parse(req.url).pathname.slice(1);
   const filepath = path.join(__dirname, 'files', pathname);
@@ -51,28 +54,6 @@ server.on('request', (req, res) => {
           });
         }),
 
-        new Promise((resolve, reject) => {
-          req.on('end', () => {
-            return resolve('req.on end');
-          });
-        }),
-
-        new Promise((resolve, reject) => {
-          res.on('finish', () => {
-            return resolve('res.on finish');
-          });
-        }),
-
-        new Promise((resolve, reject) => {
-          req.on('close', err => {
-            if (err) {
-              res.statusCode = 500;
-              return reject('Возможно произошел обрыв соединения');
-            }
-            return resolve('req.on close');
-          });
-        }),
-
       ])
         .then(results => {
           results.forEach(result => {
@@ -83,10 +64,32 @@ server.on('request', (req, res) => {
           res.end('then end');
 
         })
+        .then(result => {
+          new Promise((resolve, reject) => {
+            res.on('finish', () => {
+              return resolve('res.on finish');
+            });
+          });
+        })
+        .then(result => {
+          new Promise((resolve, reject) => {
+            req.on('close', err => {
+              if (err) {
+                res.statusCode = 500;
+                fs.unlinkSync(pathname);
+                return reject('Возможно произошел обрыв соединения');
+              }
+              return resolve('req.on close');
+            });
+          });
+        })
         .catch(err => {
           console.log(err, res.statusCode);
         })
-        .finally(res.end('finally res.end'));
+        .finally(
+          req.on('end', () => {
+            res.end('finally res.end');
+          }));
 
       break;
     default:
