@@ -2,94 +2,70 @@ const url = require('url');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+
 const LimitSizeStream = require('./LimitSizeStream');
 
 const fileSizeLimit = Math.pow(2, 20);
 
-const limitedStream = new LimitSizeStream({limit: fileSizeLimit}); // байт
 const server = new http.Server();
 
 server.on('request', (req, res) => {
-
-  const dir = path.join(__dirname, 'files');
-  !fs.existsSync(dir) && fs.mkdirSync(dir);
 
   const pathname = url.parse(req.url).pathname.slice(1);
   const filepath = path.join(__dirname, 'files', pathname);
 
   switch (req.method) {
     case 'POST':
+      const dir = path.join(__dirname, 'files');
+      !fs.existsSync(dir) && fs.mkdirSync(dir);
+      if (fs.existsSync(filepath)) {
+        res.statusCode = 409;
+        res.end('Ошибка загрузки - файл с таким именем существует');
+      }
 
-      let lenChunk = 0;
-      let bodyChunk = '';
+      if (pathname.includes('/')) {
+        res.statusCode = 400;
+        res.end('Вложенные папки не поддерживаются');
+      }
 
-      Promise.all([
+      const stream = fs.createWriteStream(filepath, {flags: 'wx'});
 
-        new Promise((resolve, reject) => {
-          if (!pathname.includes('/')) return resolve('Путь корректрый');
-          res.statusCode = 400;
-          return reject(new Error('Вложенные папки не поддерживаются'));
+      const limitStream = new LimitSizeStream({limit: fileSizeLimit}); // байт
 
-        }),
+      req
+        .pipe(limitStream)
+        .pipe(stream);
 
-        new Promise((resolve, reject) => {
-          if (!fs.existsSync(filepath)) return resolve('Имя файла корректное');
+      stream.on('error', error => {
+        if (error.code === 'EEXIST') {
           res.statusCode = 409;
-          return reject('Ошибка загрузки - такой файл уже есть');
-        }),
+          res.end('File exists');
+        } else {
+          res.statusCode = 500;
+          res.end(`Internal server error. ${error.code}`);
+          fs.unlink(filepath, err => {});
+        }
+      });
 
-        new Promise((resolve, reject) => {
+      limitStream.on('error', error => {
+        if (error.code === 'LIMIT_EXCEEDED') {
+          res.statusCode = 413;
+          res.end(`Размер файла не должен превышать ${fileSizeLimit} байт`);
+        } else {
+          res.statusCode = 500;
+          res.end(`Internal server error. ${error.code}`);
+        }
+        fs.unlink(filepath, err => {});
+      });
 
-          req.on('data', chunk => {
+      stream.on('close', () => {
+        res.end('File has been saved');
+      })
 
-            lenChunk += chunk.length;
-            bodyChunk += chunk;
-
-            if (lenChunk >= fileSizeLimit) {
-              res.statusCode = 413;
-              return reject(`${lenChunk} >= ${fileSizeLimit}`);
-            }
-
-            return resolve('req.on data');
-          });
-        }),
-
-      ])
-        .then(results => {
-          results.forEach(result => {
-            console.log(result, res.statusCode);
-          });
-
-          fs.createWriteStream(filepath).write(bodyChunk);
-          res.end('then end');
-
-        })
-        .then(result => {
-          new Promise((resolve, reject) => {
-            res.on('finish', () => {
-              return resolve('res.on finish');
-            });
-          });
-        })
-        .then(result => {
-          new Promise((resolve, reject) => {
-            req.on('close', err => {
-              if (err) {
-                res.statusCode = 500;
-                fs.unlinkSync(pathname);
-                return reject('Возможно произошел обрыв соединения');
-              }
-              return resolve('req.on close');
-            });
-          });
-        })
-        .catch(err => {
-          console.log(err, res.statusCode);
-        })
-        .finally(
-          req.on('end', () => {
-            res.end('finally res.end');
-          }));
+      res.on('close', () => {
+        if (res.finished) return;
+        fs.unlink(filepath, err => {});
+      });
 
       break;
     default:
@@ -99,3 +75,4 @@ server.on('request', (req, res) => {
 });
 
 module.exports = server;
+
