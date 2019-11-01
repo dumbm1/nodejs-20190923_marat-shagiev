@@ -1,88 +1,62 @@
-const url = require('url');
-const http = require('http');
-const path = require('path');
 const fs = require('fs');
-
 const LimitSizeStream = require('./LimitSizeStream');
 
-const fileSizeLimit = Math.pow(2, 20);
-
-const receiveFile = require('./receiveFile');
-
-const server = new http.Server();
-
-server.on('request', (req, res) => {
-
-  const pathname = url.parse(req.url).pathname.slice(1);
-  if (pathname.includes('/') || pathname.includes('..')) {
-    res.statusCode = 400;
-    res.end('Nested paths are not allowed');
+module.exports = function receiveFile(filepath, req, res) {
+  if (req.headers['content-length'] > 1e6) {
+    res.statusCode = 413;
+    res.end('File is too big!');
     return;
   }
 
-  const filepath = path.join(__dirname, 'files', pathname);
+  const writeStream = fs.createWriteStream(filepath, {flags: 'wx'});
+  const limitStream = new LimitSizeStream({limit: 1e6});
 
-  switch (req.method) {
-    case 'POST':
+  req
+      .pipe(limitStream)
+      .pipe(writeStream);
 
-      if (!filepath) {
-        res.statusCode = 404;
-        res.end('File not found');
-        return;
-      }
+  limitStream.on('error', (err) => {
+    if (err.code === 'LIMIT_EXCEEDED') {
+      res.statusCode = 413;
+      res.setHeader('Connection', 'close');
+      res.end('File is too big');
 
-      receiveFile(filepath, req, res);
+      fs.unlink(filepath, (err) => {});
+      return;
+    }
 
-      if (pathname.includes('/')) {
-        res.statusCode = 400;
-        res.end('Вложенные папки не поддерживаются');
-      }
+    console.error(err);
 
-      const stream = fs.createWriteStream(filepath, {flags: 'wx'});
+    res.statusCode = 500;
+    res.setHeader('Connection', 'close');
+    res.end('Internal server error');
 
-      const limitStream = new LimitSizeStream({limit: fileSizeLimit}); // байт
+    fs.unlink(filepath, (err) => {});
+  });
 
-      req
-        .pipe(limitStream)
-        .pipe(stream);
-
-      stream.on('error', error => {
-        if (error.code === 'EEXIST') {
+  writeStream
+      .on('error', (err) => {
+        if (err.code === 'EEXIST') {
           res.statusCode = 409;
           res.end('File exists');
-        } else {
-          res.statusCode = 500;
-          res.end(`Internal server error. ${error.code}`);
-          fs.unlink(filepath, err => {});
+          return;
         }
-      });
 
-      limitStream.on('error', error => {
-        if (error.code === 'LIMIT_EXCEEDED') {
-          res.statusCode = 413;
-          res.end(`Размер файла не должен превышать ${fileSizeLimit} байт`);
-        } else {
-          res.statusCode = 500;
-          res.end(`Internal server error. ${error.code}`);
-        }
-        fs.unlink(filepath, err => {});
-      });
+        console.error(err);
 
-      stream.on('close', () => {
-        res.end('File has been saved');
+        res.statusCode = 500;
+        res.setHeader('Connection', 'close');
+        res.end('Internal server error');
+
+        fs.unlink(filepath, (err) => {});
       })
-
-      res.on('close', () => {
-        if (res.finished) return;
-        fs.unlink(filepath, err => {});
+      .on('close', () => {
+        res.statusCode = 201;
+        res.end('File created');
       });
 
-      break;
-    default:
-      res.statusCode = 501;
-      res.end('Not implemented');
-  }
-});
-
-module.exports = server;
-
+  res.on('close', () => {
+    if (res.finished) return;
+    fs.unlink(filepath, (err) => {});
+  });
+};
