@@ -6,7 +6,7 @@ mongoose.set('useNewUrlParser', true);
 mongoose.set('useFindAndModify', false);
 mongoose.set('useCreateIndex', true);
 
-mongoose.set('debug', false);
+mongoose.set('debug', true);
 
 mongoose.plugin(beautifyUnique);
 
