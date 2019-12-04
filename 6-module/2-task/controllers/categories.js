@@ -9,9 +9,9 @@ module.exports.categoryList = async function categoryList(ctx, next) {
     categoryList.push({
       id           : category._id,
       title        : category.title,
-      subcategories: (category.subcategories).map(item => { return {'id':item._id, 'title':item.title}}
+      subcategories: (category.subcategories).map(item => { return {'id': item._id, 'title': item.title}}
       ),
     })
   }
-  ctx.body = {categoryList};
+  ctx.body = {'categories': categoryList};
 };

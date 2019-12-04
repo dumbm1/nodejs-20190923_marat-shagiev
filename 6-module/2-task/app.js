@@ -28,8 +28,7 @@ router.get('/categories', categoryList);
 router.get('/products', productsBySubcategory, productList);
 router.get('/products/:id', productById);
 
-/*router.post('/products', async (ctx) => {
-
+router.post('/products', async (ctx) => {
   const Product = require('./models/Product');
   const Category = require('./models/Category');
 
@@ -43,7 +42,7 @@ router.get('/products/:id', productById);
     }, {
       title: 'Other'
     }],
-  },{
+  }, {
     title        : 'Настольные ПК',
     subcategories: [{
       title: 'HP',
@@ -85,7 +84,7 @@ router.get('/products/:id', productById);
       subcategory: categories[0].subcategories[1].id,
       images     : ['HP-xxx_image0', 'HP-xxx_image1', 'HP-xxx_image2', 'HP-xxx_image3', 'HP-xxx_image4'],
     },
- {
+    {
       title      : 'HP-ProDesk 400',
       description: 'Corei7 8Mb 4GHz, 8Gb, HDD2000',
       price      : 1200,
@@ -93,7 +92,7 @@ router.get('/products/:id', productById);
       subcategory: categories[1].subcategories[0].id,
       images     : ['HP-ProDesk-400_image0', 'HP-ProDesk-400_image1', 'HP-ProDesk-400_image2', 'HP-ProDesk-400_image3', 'HP-ProDesk-400_image4'],
     },
- {
+    {
       title      : 'Dell OptiPlex 7050',
       description: 'Corei7 8Mb 4000GHz, 8Gb, SSD256 + HDD1000',
       price      : 1500,
@@ -105,7 +104,7 @@ router.get('/products/:id', productById);
   ]);
 
   ctx.body = products;
-})*/
+})
 
 app.use(router.routes());
 
