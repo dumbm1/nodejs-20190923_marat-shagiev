@@ -7,7 +7,7 @@ mongoose.set('useFindAndModify', false);
 mongoose.set('useCreateIndex', true);
 mongoose.set('useUnifiedTopology', true);
 
-mongoose.set('debug', true);
+// mongoose.set('debug', true);
 
 mongoose.plugin(beautifyUnique);
 
