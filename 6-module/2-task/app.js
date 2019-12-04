@@ -1,6 +1,6 @@
 const Koa = require('koa');
 const Router = require('koa-router');
-const {productsBySubcategory, productList, productById, test, testById} = require('./controllers/products');
+const {productsBySubcategory, productList, productById} = require('./controllers/products');
 const {categoryList} = require('./controllers/categories');
 
 const app = new Koa();
@@ -109,4 +109,3 @@ router.post('/products', async (ctx) => {
 app.use(router.routes());
 
 module.exports = app;
-
