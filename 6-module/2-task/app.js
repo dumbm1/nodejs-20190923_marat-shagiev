@@ -28,7 +28,7 @@ router.get('/categories', categoryList);
 router.get('/products', productsBySubcategory, productList);
 router.get('/products/:id', productById);
 
-router.post('/products', async (ctx, next) => {
+/*router.post('/products', async (ctx) => {
 
   const Product = require('./models/Product');
   const Category = require('./models/Category');
@@ -105,7 +105,7 @@ router.post('/products', async (ctx, next) => {
   ]);
 
   ctx.body = products;
-})
+})*/
 
 app.use(router.routes());
 
