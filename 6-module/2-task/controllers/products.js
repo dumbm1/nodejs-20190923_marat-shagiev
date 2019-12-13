@@ -46,7 +46,11 @@ module.exports.productById = async function productById(ctx) {
 
   const product = await Product.findById(ctx.params.id);
 
-  if (!product) ctx.throw(404, `Товар с id ${ctx.params.id} отсутсвует`);
+  if (!product) {
+    ctx.body = {"product": []};
+    ctx.throw(404, `Товар с id ${ctx.params.id} отсутсвует`);
+
+  }
 
   const resultProduct = {
     id         : ctx.params.id,
