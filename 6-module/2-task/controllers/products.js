@@ -2,29 +2,32 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 
-module.exports.productsBySubcategory = async function productsBySubcategory(ctx, next) {
-  const title = ctx.request.body.title;
-  let subcatId;
-  const categories = await Category.find();
+module.exports.productsBySubcategory = async function productsBySubcategory(ctx) {
 
-  for (let i = 0; i < categories.length; i++) {
-    const category = categories[i];
-    const subcat = (category.subcategories).filter(item => item.title === title);
-    if (!subcat.length) continue;
-    subcatId = subcat[0]._id;
-    break;
-  }
+  const products = await Product.find({subcategory: ctx.request.body.id});
+  ctx.body = {products};
+  /*const title = ctx.request.body.title;
+   let subcatId;
+   const categories = await Category.find();
 
-  if(subcatId) {
-    ctx.body = subcatId;
-    return next();
-  }
+   for (let i = 0; i < categories.length; i++) {
+   const category = categories[i];
+   const subcat = (category.subcategories).filter(item => item.title === title);
+   if (!subcat.length) continue;
+   subcatId = subcat[0]._id;
+   break;
+   }
 
-  ctx.body = {'products': []};
+   if(subcatId) {
+   ctx.body = subcatId;
+   return next();
+   }
+
+   ctx.body = {'products': []};*/
 };
 
 module.exports.productList = async function productList(ctx, next) {
-  const subcatId = ctx.body;
+  /*const subcatId = ctx.body;
   const productsBySubcatId = await Product.find({subcategory: subcatId});
 
   const productList = productsBySubcatId.map(item => {
@@ -38,7 +41,7 @@ module.exports.productList = async function productList(ctx, next) {
       description: item.description,
     }
   });
-  ctx.body = {'products': productList};
+  ctx.body = {'products': productList};*/
 };
 
 module.exports.productById = async function productById(ctx) {
