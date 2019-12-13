@@ -10,7 +10,6 @@ module.exports.productsBySubcategory = async function productsBySubcategory(ctx,
   for (let i = 0; i < categories.length; i++) {
     const category = categories[i];
     const subcat = (category.subcategories).filter(item => item.title === title);
-    console.log(subcat);
     if (!subcat.length) continue;
     subcatId = subcat[0]._id;
     break;
