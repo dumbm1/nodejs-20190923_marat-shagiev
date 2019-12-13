@@ -15,8 +15,12 @@ module.exports.productsBySubcategory = async function productsBySubcategory(ctx,
     break;
   }
 
-  ctx.body = subcatId;
-  return next();
+  if(subcatId) {
+    ctx.body = subcatId;
+    return next();
+  }
+
+  ctx.body = {'products': []};
 };
 
 module.exports.productList = async function productList(ctx, next) {
@@ -28,7 +32,7 @@ module.exports.productList = async function productList(ctx, next) {
       id         : item._id,
       title      : item.title,
       images     : item.images,
-      category   : item.categories,
+      category   : item.category,
       subcategory: item.subcategory,
       price      : item.price,
       description: item.description,
