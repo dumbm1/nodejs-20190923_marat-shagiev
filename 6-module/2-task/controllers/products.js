@@ -1,45 +1,41 @@
 const mongoose = require('mongoose');
 const Product = require('../models/Product');
+const Category = require('../models/Category');
 
 module.exports.productsBySubcategory = async function productsBySubcategory(ctx, next) {
-  if (!mongoose.Types.ObjectId.isValid(ctx.request.body.id)) {
-    ctx.body = {'products': []};
-    ctx.throw(400, 'id инвалид-c');
-    return next();
+  const title = ctx.request.body.title;
+  let subcatId;
+  const categories = await Category.find();
+
+  for (let i = 0; i < categories.length; i++) {
+    const category = categories[i];
+    const subcat = (category.subcategories).filter(item => item.title === title);
+    console.log(subcat);
+    if (!subcat.length) continue;
+    subcatId = subcat[0]._id;
+    break;
   }
 
-  const prodsBySubcatId = await Product.find({subcategory: ctx.request.body.id});
-
-  ctx.body = prodsBySubcatId;
+  ctx.body = subcatId;
   return next();
 };
 
-module.exports.productList = function productList(ctx, next) {
+module.exports.productList = async function productList(ctx, next) {
+  const subcatId = ctx.body;
+  const productsBySubcatId = await Product.find({subcategory: subcatId});
 
-  const prodsBySubcatId = ctx.body;
-
-  if (!prodsBySubcatId[0]) {
-    ctx.throw(404, `Подкатегория с id ${ctx.request.body.id} отсутсвует`);
-    ctx.body = {'products': []};
-    return next();
-  }
-
-  const resultProducts = [];
-
-  for (let i = 0; i < prodsBySubcatId.length; i++) {
-    const product = prodsBySubcatId[i];
-
-    resultProducts.push({
-      id         : product._id,
-      title      : product.title,
-      images     : product.images,
-      category   : product.category,
-      subcategory: ctx.request.body.id,
-      price      : product.price,
-      description: product.description,
-    });
-  }
-  ctx.body = {'products': resultProducts};
+  const productList = productsBySubcatId.map(item => {
+    return {
+      id         : item._id,
+      title      : item.title,
+      images     : item.images,
+      category   : item.categories,
+      subcategory: item.subcategory,
+      price      : item.price,
+      description: item.description,
+    }
+  });
+  ctx.body = {'products': productList};
 };
 
 module.exports.productById = async function productById(ctx) {
