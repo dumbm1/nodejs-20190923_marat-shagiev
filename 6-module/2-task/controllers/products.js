@@ -3,7 +3,8 @@ const Product = require('../models/Product');
 
 module.exports.productsBySubcategory = async function productsBySubcategory(ctx, next) {
 
-  const products = await Product.find({subcategory: ctx.request.body.subcategory});
+  // const products = await Product.find({subcategory: ctx.request.body.subcategory});
+  const products = await Product.find({subcategory: ctx.query.subcategory});
   ctx.body = {products};
   return next();
 };
