@@ -38,14 +38,13 @@ productSchema.index(
     description: "text",
   },
   {
-    weights: {
+    weights         : {
       title      : 10,
       description: 5
     },
-    name   : "TextSearchIndex",
-
+    name            : "TextSearchIndex",
+    default_language: "russian"
   },
-  {default_language: "russian"}
 )
 
 module.exports = connection.model('Product', productSchema);
