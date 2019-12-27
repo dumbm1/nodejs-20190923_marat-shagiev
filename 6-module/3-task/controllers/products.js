@@ -2,7 +2,13 @@ const Product = require('../models/Product');
 
 module.exports.productsByQuery = async function productsByQuery(ctx, next) {
 
-  const products = await Product.find({$text: {$search: ctx.query.query}});
+  const products = await Product
+    .find({
+      $text: {
+        $search  : ctx.query.query,
+        $language: 'ru'
+      }
+    });
 
   const prodList = products.map(item => {
     return {

@@ -32,7 +32,8 @@ const productSchema = new mongoose.Schema({
 
 });
 
-productSchema.index({
+productSchema.index(
+  {
     title      : "text",
     description: "text",
   },
